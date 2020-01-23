@@ -1,0 +1,91 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+    <title>websocket client</title>
+    <script type="text/javascript">
+
+		var position = [0,0];
+		var id = null;
+        var start = function () {
+            var wsImpl = window.WebSocket || window.MozWebSocket;
+
+            // create a new websocket and connect
+            window.ws = new wsImpl('ws://159.65.83.56:8181');
+
+            // when data is comming from the server, this metod is called
+            ws.onmessage = function (evt) {
+				//console.log(evt.data);
+				var data = JSON.parse(evt.data);
+				if(data.setup.id){
+					console.log("given id: " + data.setup.id);
+					id = data.setup.id;
+				}
+				
+				if(data.entities){
+					draw(data.entities);
+				}
+				
+            };
+
+            // when the connection is established, this method is called
+            ws.onopen = function () {
+
+            };
+
+            // when the connection is closed, this method is called
+            ws.onclose = function () {
+			
+            }            
+        }
+		
+		function sendUpdate() {
+			var update = {id:id,position:position,colour:[Math.floor(Math.random() * 255),Math.floor(Math.random() * 255),Math.floor(Math.random() * 255)]};
+			var updateJson = JSON.stringify(update);
+			ws.send(updateJson);
+		}
+		
+		function draw(entities) {
+			var canvas = document.querySelector(".game");
+			var width = canvas.width
+			var height = canvas.height	
+			var ctx = canvas.getContext("2d");
+		
+			ctx.fillStyle = "rgb(0,0,0)";
+			ctx.fillRect(0,0,width,height);
+			
+			for(i = 0; i < entities.length; i++) {
+				ctx.fillStyle = "rgb("+entities[i].colour[0]+","+entities[i].colour[1]+","+entities[i].colour[2]+")";
+				ctx.fillRect(entities[i].position[0], entities[i].position[1], 20, 20)
+			}
+			
+		}
+		
+		function move(key) {
+			if(key.code == "KeyW"){
+				position[1]-= 5;
+			}
+			if(key.code == "KeyA"){
+				position[0]-= 5;
+			}
+			if(key.code == "KeyS"){
+				position[1]+= 5;
+			}
+			if(key.code == "KeyD"){
+				position[0]+= 5;
+			}		
+			sendUpdate();
+		}
+		
+        window.onload = start;
+		
+		document.addEventListener("keydown", move);
+	
+    </script>
+</head>
+<body>
+
+<canvas class="game" width="1280" height="720">
+	<p>Your browser does not support canvas, this is required</p>
+</canvas>
+</body>
+</html>
