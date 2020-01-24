@@ -11,9 +11,11 @@ namespace simpleGame
         static void Main(string[] args)
         {
             //FleckLog.Level = LogLevel.Debug;
-            var server = new WebSocketServer("ws://159.65.83.56:8181");
+            //var server = new WebSocketServer("ws://159.65.83.56:8181");
+            var server = new WebSocketServer("ws://0.0.0.0:8181");
             var sockets = new Dictionary<IWebSocketConnection, string>();
             var connectingSockets = new Dictionary<IWebSocketConnection, string>();
+            var disconectingClients = new Dictionary<IWebSocketConnection, string>();
             var entities = new Dictionary<string, Entity>();
 
             server.Start(socket =>
@@ -28,18 +30,7 @@ namespace simpleGame
                 };
                 socket.OnClose = () =>
                 {
-                    string id = sockets[socket];
-                    if (id != null)
-                    {
-                        if (entities.ContainsKey(id))
-                        {
-                            entities.Remove(id);
-                        }
-                        if (sockets.ContainsKey(socket))
-                        {
-                            sockets.Remove(socket);
-                        }
-                    }
+                    disconectingClients.Add(socket, sockets[socket]);
                 };
                 socket.OnMessage = message =>
                 {
@@ -59,19 +50,32 @@ namespace simpleGame
             });
 
             while (true)
-            {                
+            {
+                // remove any entities and sockets associated with players who have disconected
+                foreach (KeyValuePair<IWebSocketConnection, string> player in disconectingClients)
+                {
+                    entities.Remove(player.Value);
+                    sockets.Remove(player.Key);
+                }
+                disconectingClients.Clear();
+
+                // create update packet
                 var update = new UpdatePacket(entities.Values.ToList());
+                var updateJson = JsonConvert.SerializeObject(update);
+                // send update to every client
                 foreach (KeyValuePair<IWebSocketConnection, string> socket in sockets)
                 {
-                    socket.Key.Send(JsonConvert.SerializeObject(update));
+                    socket.Key.Send(updateJson);
                 }
-                
+
+                // merge newly connected clients so they can start recieving updates
                 foreach (KeyValuePair<IWebSocketConnection, string> socket in connectingSockets)
                 {
                     sockets.Add(socket.Key, socket.Value);
                 }
                 connectingSockets.Clear();
 
+                // creates a rate of 60 updates per second
                 System.Threading.Thread.Sleep(16);
             }        
         }
